@@ -2,6 +2,7 @@
 
 use App\Enums\UserRole;
 use App\Filament\Resources\Brands\BrandResource;
+use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\TaxRates\TaxRateResource;
 use App\Models\User;
@@ -14,6 +15,7 @@ it('renders catalog resources for an active administrator', function (string $re
     $this->get($resource::getUrl())->assertOk();
 })->with([
     BrandResource::class,
+    ProductResource::class,
     SupplierResource::class,
     TaxRateResource::class,
 ]);
