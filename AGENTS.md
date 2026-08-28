@@ -175,3 +175,46 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
 
 </laravel-boost-guidelines>
+
+<pos-project-guidelines>
+=== product contract ===
+
+# Sunmi POS Project
+
+- Read `docs/POS_PROJECT_SPEC.md` completely before changing POS behavior. It is the product and architecture contract.
+- Determine the current roadmap phase from the repository and implement only its smallest decided slice and prerequisites. Do not scaffold later phases.
+- Treat `Herd/voorraad-kassa` as read-only behavioral reference. Never modify it or copy its code, secrets, databases, logs, credentials, or customer data.
+- If a choice changes money, VAT, stock, payment, refund, return, receipt, or synchronization semantics, stop and request the product decision before coding it.
+
+## Authority boundaries
+
+- Laravel is authoritative for products, accepted checkout prices, VAT, orders, payments, inventory, returns, reporting, and WooCommerce synchronization.
+- Kotlin owns the Sunmi UI, scanner adapter, local cart and retry state, server-status display, and local-network ESC/POS printing. Do not duplicate Laravel business rules in Android.
+- Controllers, Filament resources, commands, jobs, and integrations are adapters. Put transactional business operations in focused action classes and call those actions from every adapter.
+- Keep the Laravel application a monolith. Do not add repositories, service interfaces, event sourcing, microservices, or generic integration frameworks without a demonstrated second implementation or approved need.
+
+## Settled foundation decisions
+
+- Selling prices are VAT-inclusive integer cents; purchase prices are VAT-exclusive integer cents.
+- Quantities use signed `decimal(15,3)`. Never use binary floating point for money or stock arithmetic.
+- Production uses MySQL. Exercise row-locking and concurrency behavior against MySQL before checkout acceptance; SQLite remains suitable for fast local tests that do not prove MySQL locking.
+- POS sales cannot reduce stock below zero. Managers and administrators may make explicit, reasoned stock adjustments.
+- Every stock change goes through `PostInventory`, with the immutable ledger entry and cached product balance written under one product-row lock in the same transaction.
+- Checkout, returns, provider callbacks, WooCommerce imports, and stock synchronization must be idempotent. A reused key with different input is a conflict, not a second operation.
+
+## Filament 5 admin boundary
+
+- Use Filament 5 to accelerate manager/admin CRUD and operational views. Do not use it for the Sunmi cashier UI or as the Android API.
+- Product forms never write `stock_on_hand`. Show it read-only and use a custom stock-adjustment action that calls `PostInventory` with the authenticated actor, reason, and idempotency key.
+- Inventory ledger resources are view-only: no create, edit, delete, restore, or bulk mutation actions.
+- Keep authorization in policies or gates/domain actions; hiding a Filament button is not authorization.
+- Do not run Filament's frontend scaffold command on this existing starter application because it may overwrite frontend files. Install the panel builder and generate only resources actually needed by the current phase.
+
+## Delivery checks
+
+- Read every matching `.ai/rules` file before editing. Record newly settled durable decisions with Boost `record-rule`; do not hand-edit `.ai/rules`.
+- Add the smallest Pest test for every non-trivial branch, transaction, authorization rule, and idempotency path. Inventory, money, VAT, payment, return, and synchronization behavior always requires tests.
+- Run focused tests first, then `vendor/bin/pint --dirty --format agent`, PHPStan, and the complete suite before completing a roadmap slice.
+- Do not call external providers inside database transactions. Dispatch retry-safe work after commit and log only safe identifiers.
+
+</pos-project-guidelines>
