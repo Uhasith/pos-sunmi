@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Device;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\NewAccessToken;
 use Tests\TestCase;
 
 /*
@@ -44,7 +47,10 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function posToken(User $user, Device $device): NewAccessToken
 {
-    // ..
+    $token = $user->createToken($device->name, ['pos']);
+    $token->accessToken->forceFill(['device_id' => $device->id])->save();
+
+    return $token;
 }

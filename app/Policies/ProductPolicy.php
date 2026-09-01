@@ -9,12 +9,12 @@ class ProductPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->canManageCatalog();
+        return $user->active;
     }
 
     public function view(User $user, Product $product): bool
     {
-        return $user->canManageCatalog();
+        return $user->active;
     }
 
     public function create(User $user): bool
