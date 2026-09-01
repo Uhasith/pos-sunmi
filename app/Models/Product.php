@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $brand_id
  * @property int|null $supplier_id
  * @property int $tax_rate_id
+ * @property int|null $woocommerce_product_id
+ * @property int|null $woocommerce_variation_id
  * @property bool $active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -36,6 +38,8 @@ use Illuminate\Support\Carbon;
     'brand_id',
     'supplier_id',
     'tax_rate_id',
+    'woocommerce_product_id',
+    'woocommerce_variation_id',
     'active',
 ])]
 class Product extends Model
@@ -75,6 +79,8 @@ class Product extends Model
             'purchase_price_excluding_tax_cents' => 'integer',
             'stock_on_hand' => 'decimal:3',
             'minimum_stock' => 'decimal:3',
+            'woocommerce_product_id' => 'integer',
+            'woocommerce_variation_id' => 'integer',
             'active' => 'boolean',
         ];
     }

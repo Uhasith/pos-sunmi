@@ -3,9 +3,11 @@
 use App\Actions\Inventory\PostInventory;
 use App\Enums\InventoryTransactionType;
 use App\Enums\UserRole;
+use App\Jobs\SyncProductStockToWooCommerce;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Queue;
 
 it('posts an opening balance exactly once when retried', function () {
     $product = Product::factory()->create();
@@ -160,4 +162,20 @@ it('requires a reason for a manual adjustment', function () {
 
     expect($product->refresh()->stock_on_hand)->toBe('0.000');
     $this->assertDatabaseEmpty('inventory_transactions');
+});
+
+it('dispatches one mapped stock projection after commit for an idempotent posting', function () {
+    Queue::fake([SyncProductStockToWooCommerce::class]);
+    $product = Product::factory()->create(['woocommerce_product_id' => 123]);
+    $action = app(PostInventory::class);
+
+    $action->handle($product, '1.000', InventoryTransactionType::OpeningBalance, 'mapped-opening');
+    $action->handle($product, '1.000', InventoryTransactionType::OpeningBalance, 'mapped-opening');
+
+    Queue::assertPushedTimes(SyncProductStockToWooCommerce::class, 1);
+    Queue::assertPushed(
+        SyncProductStockToWooCommerce::class,
+        fn (SyncProductStockToWooCommerce $job): bool => $job->productId === $product->id
+            && $job->afterCommit === true,
+    );
 });

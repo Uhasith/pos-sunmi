@@ -31,6 +31,8 @@ class ProductFactory extends Factory
             'brand_id' => Brand::factory(),
             'supplier_id' => Supplier::factory(),
             'tax_rate_id' => TaxRate::factory(),
+            'woocommerce_product_id' => null,
+            'woocommerce_variation_id' => null,
             'active' => true,
         ];
     }

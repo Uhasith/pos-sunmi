@@ -4,6 +4,12 @@ Significant project changes are recorded here for future development work.
 
 ## Unreleased
 
+### Added
+
+- Explicit WooCommerce product/variation mappings managed through Filament.
+- Retry-safe after-commit stock projection jobs that send Laravel's current integer balance to mapped WooCommerce products and variations.
+- Visible permanent failure for fractional stock without making a WooCommerce request.
+
 ## 2026-08-28
 
 ### Added

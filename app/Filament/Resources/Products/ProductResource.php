@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\TaxRate;
 use App\Models\User;
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Hidden;
@@ -18,6 +19,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -101,6 +103,33 @@ class ProductResource extends Resource
                     )
                     ->preload()
                     ->required(),
+                TextInput::make('woocommerce_product_id')
+                    ->label('WooCommerce product ID')
+                    ->integer()
+                    ->minValue(1)
+                    ->rule(fn (Get $get, ?Product $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get, $record): void {
+                        if ($value === null || filled($get('woocommerce_variation_id'))) {
+                            return;
+                        }
+
+                        if (Product::query()
+                            ->where('woocommerce_product_id', $value)
+                            ->whereNull('woocommerce_variation_id')
+                            ->when($record, fn (Builder $query): Builder => $query->whereKeyNot($record->id))
+                            ->exists()) {
+                            $fail('This WooCommerce product is already mapped.');
+                        }
+                    }),
+                TextInput::make('woocommerce_variation_id')
+                    ->label('WooCommerce variation ID')
+                    ->integer()
+                    ->minValue(1)
+                    ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                        if ($value !== null && blank($get('woocommerce_product_id'))) {
+                            $fail('A WooCommerce parent product ID is required for a variation.');
+                        }
+                    })
+                    ->unique(ignoreRecord: true),
                 Toggle::make('active')
                     ->default(true)
                     ->required(),
@@ -149,6 +178,12 @@ class ProductResource extends Resource
                 TextColumn::make('taxRate.label')
                     ->label('VAT')
                     ->sortable(),
+                TextColumn::make('woocommerce_product_id')
+                    ->label('Woo product ID')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('woocommerce_variation_id')
+                    ->label('Woo variation ID')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('active')
                     ->boolean(),
                 TextColumn::make('created_at')

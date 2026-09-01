@@ -35,6 +35,8 @@ it('creates a product without accepting a direct stock balance', function () {
             'brand_id' => $brand->id,
             'supplier_id' => $supplier->id,
             'tax_rate_id' => $taxRate->id,
+            'woocommerce_product_id' => 123,
+            'woocommerce_variation_id' => 456,
             'active' => true,
         ])
         ->assertHasNoFormErrors();
@@ -42,7 +44,84 @@ it('creates a product without accepting a direct stock balance', function () {
     $product = Product::query()->where('article_number', 'TEST-1001')->firstOrFail();
 
     expect($product->stock_on_hand)->toBe('0.000');
+    expect($product->woocommerce_product_id)->toBe(123)
+        ->and($product->woocommerce_variation_id)->toBe(456);
     $this->assertDatabaseCount('inventory_transactions', 0);
+});
+
+it('rejects a WooCommerce variation without its parent product', function () {
+    actingAs(User::factory()->withRole(UserRole::Admin)->create());
+    $taxRate = TaxRate::factory()->create([
+        'rate_basis_points' => 900,
+        'active' => true,
+    ]);
+
+    Livewire::test(ManageProducts::class)
+        ->callAction(CreateAction::class, data: [
+            'title' => 'Unmapped variation',
+            'article_number' => 'TEST-WOO-1',
+            'selling_price_including_tax_cents' => 1299,
+            'purchase_price_excluding_tax_cents' => 600,
+            'minimum_stock' => '0.000',
+            'tax_rate_id' => $taxRate->id,
+            'woocommerce_variation_id' => 456,
+            'active' => true,
+        ])
+        ->assertHasFormErrors(['woocommerce_variation_id']);
+
+    expect(Product::query()->where('article_number', 'TEST-WOO-1')->exists())->toBeFalse();
+});
+
+it('rejects duplicate simple WooCommerce product mappings', function () {
+    actingAs(User::factory()->withRole(UserRole::Admin)->create());
+    Product::factory()->create(['woocommerce_product_id' => 123]);
+    $taxRate = TaxRate::factory()->create([
+        'rate_basis_points' => 900,
+        'active' => true,
+    ]);
+
+    Livewire::test(ManageProducts::class)
+        ->callAction(CreateAction::class, data: [
+            'title' => 'Duplicate mapping',
+            'article_number' => 'TEST-WOO-2',
+            'selling_price_including_tax_cents' => 1299,
+            'purchase_price_excluding_tax_cents' => 600,
+            'minimum_stock' => '0.000',
+            'tax_rate_id' => $taxRate->id,
+            'woocommerce_product_id' => 123,
+            'active' => true,
+        ])
+        ->assertHasFormErrors(['woocommerce_product_id']);
+
+    expect(Product::query()->where('article_number', 'TEST-WOO-2')->exists())->toBeFalse();
+});
+
+it('rejects duplicate WooCommerce variation mappings', function () {
+    actingAs(User::factory()->withRole(UserRole::Admin)->create());
+    Product::factory()->create([
+        'woocommerce_product_id' => 123,
+        'woocommerce_variation_id' => 456,
+    ]);
+    $taxRate = TaxRate::factory()->create([
+        'rate_basis_points' => 900,
+        'active' => true,
+    ]);
+
+    Livewire::test(ManageProducts::class)
+        ->callAction(CreateAction::class, data: [
+            'title' => 'Duplicate variation',
+            'article_number' => 'TEST-WOO-3',
+            'selling_price_including_tax_cents' => 1299,
+            'purchase_price_excluding_tax_cents' => 600,
+            'minimum_stock' => '0.000',
+            'tax_rate_id' => $taxRate->id,
+            'woocommerce_product_id' => 999,
+            'woocommerce_variation_id' => 456,
+            'active' => true,
+        ])
+        ->assertHasFormErrors(['woocommerce_variation_id']);
+
+    expect(Product::query()->where('article_number', 'TEST-WOO-3')->exists())->toBeFalse();
 });
 
 it('rejects a VAT rate that is not active and supported in V1', function (int $rateBasisPoints, bool $active) {

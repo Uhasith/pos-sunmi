@@ -5,6 +5,7 @@ namespace App\Actions\Inventory;
 use App\Enums\InventoryTransactionType;
 use App\Enums\UserRole;
 use App\Exceptions\InventoryIdempotencyConflict;
+use App\Jobs\SyncProductStockToWooCommerce;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\User;
@@ -40,7 +41,7 @@ class PostInventory
             $this->authorizeManualAdjustment($actor, $reason);
         }
 
-        return DB::transaction(function () use ($product, $normalizedDelta, $delta, $type, $idempotencyKey, $actor, $reason): InventoryTransaction {
+        $transaction = DB::transaction(function () use ($product, $normalizedDelta, $delta, $type, $idempotencyKey, $actor, $reason): InventoryTransaction {
             $lockedProduct = Product::query()
                 ->whereKey($product->id)
                 ->lockForUpdate()
@@ -95,6 +96,12 @@ class PostInventory
 
             return $transaction;
         }, 3);
+
+        if ($transaction->wasRecentlyCreated && $product->woocommerce_product_id !== null) {
+            SyncProductStockToWooCommerce::dispatch($product->id)->afterCommit();
+        }
+
+        return $transaction;
     }
 
     private function authorizeManualAdjustment(?User $actor, ?string $reason): void
