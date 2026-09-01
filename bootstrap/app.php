@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\CheckoutConflict;
 use App\Exceptions\InventoryIdempotencyConflict;
 use App\Http\Middleware\AssignRequestId;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -53,6 +54,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 $code = 'forbidden';
                 $message = 'This action is not authorized.';
                 $status = Response::HTTP_FORBIDDEN;
+            } elseif ($exception instanceof CheckoutConflict) {
+                $code = $exception->errorCode;
+                $message = $exception->getMessage();
+                $details = $exception->details;
+                $status = Response::HTTP_CONFLICT;
             } elseif ($exception instanceof InventoryIdempotencyConflict) {
                 $code = 'conflict';
                 $message = 'The idempotency key was already used with different data.';

@@ -7,8 +7,10 @@ use App\Enums\UserRole;
 use App\Exceptions\InventoryIdempotencyConflict;
 use App\Jobs\SyncProductStockToWooCommerce;
 use App\Models\InventoryTransaction;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\DecimalQuantity;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +25,10 @@ class PostInventory
         string $idempotencyKey,
         ?User $actor = null,
         ?string $reason = null,
+        ?OrderItem $orderItem = null,
     ): InventoryTransaction {
-        $delta = $this->quantityToInteger($quantityDelta);
-        $normalizedDelta = $this->integerToQuantity($delta);
+        $delta = DecimalQuantity::toMilliunits($quantityDelta);
+        $normalizedDelta = DecimalQuantity::fromMilliunits($delta);
         $idempotencyKey = trim($idempotencyKey);
         $reason = $reason === null ? null : trim($reason);
 
@@ -41,7 +44,7 @@ class PostInventory
             $this->authorizeManualAdjustment($actor, $reason);
         }
 
-        $transaction = DB::transaction(function () use ($product, $normalizedDelta, $delta, $type, $idempotencyKey, $actor, $reason): InventoryTransaction {
+        $transaction = DB::transaction(function () use ($product, $normalizedDelta, $delta, $type, $idempotencyKey, $actor, $reason, $orderItem): InventoryTransaction {
             $lockedProduct = Product::query()
                 ->whereKey($product->id)
                 ->lockForUpdate()
@@ -58,6 +61,7 @@ class PostInventory
                     $type,
                     $actor,
                     $reason,
+                    $orderItem,
                 );
 
                 return $existingTransaction;
@@ -72,14 +76,14 @@ class PostInventory
                 throw new DomainException('An opening balance has already been posted for this product.');
             }
 
-            $stockBefore = $this->quantityToInteger($lockedProduct->stock_on_hand);
+            $stockBefore = DecimalQuantity::toMilliunits($lockedProduct->stock_on_hand);
             $stockAfter = $stockBefore + $delta;
 
             if ($type !== InventoryTransactionType::ManualAdjustment && $stockAfter < 0) {
                 throw new DomainException('Inventory posting would reduce stock below zero.');
             }
 
-            $stockAfterQuantity = $this->integerToQuantity($stockAfter);
+            $stockAfterQuantity = DecimalQuantity::fromMilliunits($stockAfter);
             $transaction = InventoryTransaction::query()->create([
                 'product_id' => $lockedProduct->id,
                 'quantity_delta' => $normalizedDelta,
@@ -88,6 +92,7 @@ class PostInventory
                 'stock_after' => $stockAfterQuantity,
                 'reason' => $reason,
                 'actor_user_id' => $actor?->id,
+                'order_item_id' => $orderItem?->id,
                 'idempotency_key' => $idempotencyKey,
             ]);
 
@@ -126,6 +131,7 @@ class PostInventory
         InventoryTransactionType $type,
         ?User $actor,
         ?string $reason,
+        ?OrderItem $orderItem,
     ): void {
         if (
             $transaction->product_id !== $product->id
@@ -133,30 +139,9 @@ class PostInventory
             || $transaction->type !== $type
             || $transaction->actor_user_id !== $actor?->id
             || $transaction->reason !== $reason
+            || $transaction->order_item_id !== $orderItem?->id
         ) {
             throw new InventoryIdempotencyConflict('Inventory idempotency key was already used with different data.');
         }
-    }
-
-    private function quantityToInteger(string $quantity): int
-    {
-        if (! preg_match('/\A(?<sign>-?)(?<whole>\d{1,12})(?:\.(?<fraction>\d{1,3}))?\z/', $quantity, $parts)) {
-            throw new InvalidArgumentException('Inventory quantities must have at most three decimal places.');
-        }
-
-        $value = ((int) $parts['whole'] * 1000)
-            + (int) str_pad($parts['fraction'] ?? '', 3, '0');
-
-        return $parts['sign'] === '-' ? -$value : $value;
-    }
-
-    private function integerToQuantity(int $quantity): string
-    {
-        $absoluteQuantity = abs($quantity);
-
-        return ($quantity < 0 ? '-' : '')
-            .intdiv($absoluteQuantity, 1000)
-            .'.'
-            .str_pad((string) ($absoluteQuantity % 1000), 3, '0', STR_PAD_LEFT);
     }
 }

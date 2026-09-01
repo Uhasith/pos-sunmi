@@ -6,6 +6,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | --- | --- |
 | android/** | .ai/rules/android.md |
 | app/** | .ai/rules/app.md |
+| app/Actions/Checkout/** | .ai/rules/checkout.md |
 | app/Filament/** | .ai/rules/filament.md |
 | ** | .ai/rules/general.md |
 | app/Http/** | .ai/rules/http.md |

@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property string $stock_after
  * @property string|null $reason
  * @property int|null $actor_user_id
+ * @property int|null $order_item_id
  * @property string $idempotency_key
  * @property Carbon $created_at
  */
@@ -28,6 +29,7 @@ use Illuminate\Support\Carbon;
     'stock_after',
     'reason',
     'actor_user_id',
+    'order_item_id',
     'idempotency_key',
 ])]
 class InventoryTransaction extends Model
@@ -44,6 +46,12 @@ class InventoryTransaction extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_user_id');
+    }
+
+    /** @return BelongsTo<OrderItem, $this> */
+    public function orderItem(): BelongsTo
+    {
+        return $this->belongsTo(OrderItem::class);
     }
 
     /** @return array<string, string> */

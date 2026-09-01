@@ -71,6 +71,12 @@ class Product extends Model
         return $this->hasMany(InventoryTransaction::class);
     }
 
+    /** @return HasMany<OrderItem, $this> */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

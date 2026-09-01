@@ -6,4 +6,5 @@ enum InventoryTransactionType: string
 {
     case OpeningBalance = 'opening_balance';
     case ManualAdjustment = 'manual_adjustment';
+    case PosSale = 'pos_sale';
 }

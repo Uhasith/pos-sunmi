@@ -6,6 +6,9 @@ Significant project changes are recorded here for future development work.
 
 ### Added
 
+- Atomic, idempotent `POST /api/v1/checkouts` cash sales with catalog/manual lines, server-side VAT totals, immutable receipt snapshots, cash tender/change, and paid order/payment records.
+- Whole-unit POS sale ledger postings linked to order items, with deterministic product locking and after-commit WooCommerce stock projection for mapped products.
+- Guarded MySQL concurrency coverage proving that two devices cannot both sell the final unit.
 - Explicit WooCommerce product/variation mappings managed through Filament.
 - Retry-safe after-commit stock projection jobs that send Laravel's current integer balance to mapped WooCommerce products and variations.
 - Visible permanent failure for fractional stock without making a WooCommerce request.
