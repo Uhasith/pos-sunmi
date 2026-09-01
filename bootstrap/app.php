@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\InventoryIdempotencyConflict;
 use App\Http\Middleware\AssignRequestId;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -49,6 +50,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 $message = 'Authentication is required.';
                 $status = Response::HTTP_UNAUTHORIZED;
             } elseif ($exception instanceof AuthorizationException) {
+                $code = 'forbidden';
+                $message = 'This action is not authorized.';
+                $status = Response::HTTP_FORBIDDEN;
+            } elseif ($exception instanceof InventoryIdempotencyConflict) {
+                $code = 'conflict';
+                $message = 'The idempotency key was already used with different data.';
+                $status = Response::HTTP_CONFLICT;
+            } elseif ($exception instanceof HttpExceptionInterface && $exception->getStatusCode() === Response::HTTP_FORBIDDEN) {
                 $code = 'forbidden';
                 $message = 'This action is not authorized.';
                 $status = Response::HTTP_FORBIDDEN;

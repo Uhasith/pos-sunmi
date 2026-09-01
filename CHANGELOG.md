@@ -11,6 +11,7 @@ Significant project changes are recorded here for future development work.
 - Sanctum bearer-token authentication for pre-provisioned active POS devices and a versioned `/api/v1` boundary.
 - Filament device provisioning and activation management without destructive device actions.
 - Authenticated active-product listing, detail, search, and exact barcode lookup resources for the Android client.
+- Authenticated inventory-ledger reads and idempotent manager/admin stock adjustments through `PostInventory`.
 - Safe API error envelopes with request correlation IDs.
 - Read-only WooCommerce REST API credential check using HTTPS basic authentication.
 - Inventory reconciliation command that reports cached-stock mismatches without modifying data.

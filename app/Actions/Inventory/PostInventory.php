@@ -4,6 +4,7 @@ namespace App\Actions\Inventory;
 
 use App\Enums\InventoryTransactionType;
 use App\Enums\UserRole;
+use App\Exceptions\InventoryIdempotencyConflict;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\User;
@@ -126,7 +127,7 @@ class PostInventory
             || $transaction->actor_user_id !== $actor?->id
             || $transaction->reason !== $reason
         ) {
-            throw new DomainException('Inventory idempotency key was already used with different data.');
+            throw new InventoryIdempotencyConflict('Inventory idempotency key was already used with different data.');
         }
     }
 
