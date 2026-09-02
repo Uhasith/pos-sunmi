@@ -16,4 +16,5 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Filament/Resources/Orders/** | .ai/rules/orders.md |
 | app/Providers/Filament/** | .ai/rules/providers-filament.md |
 | tests/** | .ai/rules/tests.md |
+| app/Http/Controllers/Api/V1/OrderController.php | .ai/rules/v1.md |
 | app/Actions/WooCommerce/** | .ai/rules/woo-commerce.md |

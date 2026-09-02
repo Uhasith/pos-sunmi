@@ -2,6 +2,7 @@
 
 use App\Enums\UserRole;
 use App\Filament\Resources\Products\Pages\ManageProducts;
+use App\Jobs\SyncProductStockToWooCommerce;
 use App\Models\Brand;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
@@ -10,6 +11,7 @@ use App\Models\TaxRate;
 use App\Models\User;
 use Filament\Actions\CreateAction;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -190,4 +192,46 @@ it('rejects a zero stock adjustment before posting inventory', function () {
 
     expect($product->refresh()->stock_on_hand)->toBe('0.000');
     $this->assertDatabaseCount('inventory_transactions', 0);
+});
+
+it('lets managers and administrators retry a failed Woo stock sync', function (UserRole $role) {
+    Queue::fake([SyncProductStockToWooCommerce::class]);
+    $user = User::factory()->withRole($role)->create();
+    $product = Product::factory()->create([
+        'stock_on_hand' => '2.000',
+        'woocommerce_product_id' => 123,
+    ]);
+    $product->forceFill([
+        'woocommerce_stock_sync_failed_at' => now(),
+        'woocommerce_stock_sync_failure_code' => 'request_failed',
+    ])->saveQuietly();
+    actingAs($user);
+
+    Livewire::test(ManageProducts::class)
+        ->assertSee('Failed: Request Failed')
+        ->callAction(TestAction::make('retryWooCommerceStockSync')->table($product))
+        ->assertNotified('Woo stock sync queued');
+
+    Queue::assertPushed(SyncProductStockToWooCommerce::class, fn (SyncProductStockToWooCommerce $job): bool => $job->productId === $product->id);
+})->with([UserRole::Manager, UserRole::Admin]);
+
+it('prevents unsafe or unauthorized Woo stock retries', function () {
+    Queue::fake([SyncProductStockToWooCommerce::class]);
+    $administrator = User::factory()->withRole(UserRole::Admin)->create();
+    $cashier = User::factory()->withRole(UserRole::Cashier)->create();
+    $product = Product::factory()->create([
+        'stock_on_hand' => '1.250',
+        'woocommerce_product_id' => 123,
+    ]);
+    $product->forceFill([
+        'woocommerce_stock_sync_failed_at' => now(),
+        'woocommerce_stock_sync_failure_code' => 'fractional_stock',
+    ])->saveQuietly();
+    actingAs($administrator);
+
+    Livewire::test(ManageProducts::class)
+        ->assertActionDisabled(TestAction::make('retryWooCommerceStockSync')->table($product));
+
+    expect($cashier->can('retryWooCommerceStockSync', $product))->toBeFalse();
+    Queue::assertNothingPushed();
 });

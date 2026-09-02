@@ -7,6 +7,8 @@ Significant project changes are recorded here for future development work.
 ### Added
 
 - Read-only Filament Orders sidebar with immutable line, VAT, cashier, device, and cash-payment snapshots.
+- Authenticated immutable sale-receipt retrieval for safe reprinting without replaying checkout, payment, or inventory effects.
+- Environment-backed shop identity in detailed receipt data for later ESC/POS rendering.
 - Signed, delivery-deduplicated WooCommerce order webhook intake that retains safe identifiers and a payload hash without storing customer payload bodies.
 - Authenticated newest-first POS order listing and receipt-ready detail retrieval by immutable order number.
 - Atomic, idempotent `POST /api/v1/checkouts` cash sales with catalog/manual lines, server-side VAT totals, immutable receipt snapshots, cash tender/change, and paid order/payment records.
@@ -15,6 +17,7 @@ Significant project changes are recorded here for future development work.
 - Explicit WooCommerce product/variation mappings managed through Filament.
 - Retry-safe after-commit stock projection jobs that send Laravel's current integer balance to mapped WooCommerce products and variations.
 - Visible permanent failure for fractional stock without making a WooCommerce request.
+- Product-level Woo stock-sync success/failure status with safe manager/admin retry controls in Filament.
 
 ## 2026-08-28
 

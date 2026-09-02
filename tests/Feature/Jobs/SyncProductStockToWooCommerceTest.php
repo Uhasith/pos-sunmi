@@ -22,10 +22,15 @@ beforeEach(function () {
 });
 
 it('projects the current simple-product balance on every retry', function () {
+    $this->travelTo('2026-09-02 12:00:00');
     Queue::fake([SyncProductStockToWooCommerce::class]);
     $product = Product::factory()->create([
         'woocommerce_product_id' => 123,
     ]);
+    $product->forceFill([
+        'woocommerce_stock_sync_failed_at' => now()->subMinute(),
+        'woocommerce_stock_sync_failure_code' => 'request_failed',
+    ])->saveQuietly();
     app(PostInventory::class)->handle(
         $product,
         '2.000',
@@ -56,6 +61,10 @@ it('projects the current simple-product balance on every retry', function () {
             'manage_stock' => true,
             'stock_quantity' => 7,
         ]);
+    expect($product->refresh())
+        ->woocommerce_stock_synced_at->toDateTimeString()->toBe('2026-09-02 12:00:00')
+        ->woocommerce_stock_sync_failed_at->toBeNull()
+        ->woocommerce_stock_sync_failure_code->toBeNull();
 });
 
 it('projects variation stock through its parent product endpoint', function () {
@@ -82,6 +91,26 @@ it('projects variation stock through its parent product endpoint', function () {
         && $request['stock_quantity'] === 3);
 });
 
+it('does not mark a changed WooCommerce mapping as synchronized by an older request', function () {
+    $product = Product::factory()->create([
+        'woocommerce_product_id' => 123,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake([
+        'https://shop.example/wp-json/wc/v3/products/123' => function () use ($product) {
+            $product->update(['woocommerce_variation_id' => 456]);
+
+            return Http::response(['id' => 123]);
+        },
+    ]);
+
+    (new SyncProductStockToWooCommerce($product->id))->handle(app(WooCommerceClient::class));
+
+    expect($product->refresh())
+        ->woocommerce_variation_id->toBe(456)
+        ->woocommerce_stock_synced_at->toBeNull();
+});
+
 it('leaves HTTP failures retryable without exposing the provider response', function () {
     $product = Product::factory()->create([
         'woocommerce_product_id' => 123,
@@ -93,11 +122,19 @@ it('leaves HTTP failures retryable without exposing the provider response', func
         ], 503),
     ]);
 
-    expect(fn () => (new SyncProductStockToWooCommerce($product->id))
-        ->handle(app(WooCommerceClient::class)))
+    $job = new SyncProductStockToWooCommerce($product->id);
+
+    expect(fn () => $job->handle(app(WooCommerceClient::class)))
         ->toThrow(WooCommerceRequestFailed::class, 'WooCommerce stock update failed with HTTP 503.');
 
+    $job->failed(new WooCommerceRequestFailed('Safe failure'));
+
     Http::assertSentCount(1);
+    expect($product->refresh())
+        ->woocommerce_stock_sync_failed_at->not->toBeNull()
+        ->woocommerce_stock_sync_failure_code->toBe('request_failed');
+    expect(json_encode($product->getAttributes(), JSON_THROW_ON_ERROR))
+        ->not->toContain('sensitive provider response');
 });
 
 it('permanently fails fractional stock without making a request', function () {
@@ -113,7 +150,25 @@ it('permanently fails fractional stock without making a request', function () {
     $job = (new SyncProductStockToWooCommerce($product->id))->withFakeQueueInteractions();
 
     $job->handle(app(WooCommerceClient::class));
+    $job->failed(new FractionalWooCommerceStock('Fractional stock'));
 
     $job->assertFailedWith(FractionalWooCommerceStock::class);
+    expect($product->refresh()->woocommerce_stock_sync_failure_code)->toBe('fractional_stock');
     Http::assertNothingSent();
+});
+
+it('clears stale sync status when a WooCommerce mapping changes', function () {
+    $product = Product::factory()->create(['woocommerce_product_id' => 123]);
+    $product->forceFill([
+        'woocommerce_stock_synced_at' => now(),
+        'woocommerce_stock_sync_failed_at' => now(),
+        'woocommerce_stock_sync_failure_code' => 'request_failed',
+    ])->saveQuietly();
+
+    $product->update(['woocommerce_variation_id' => 456]);
+
+    expect($product->refresh())
+        ->woocommerce_stock_synced_at->toBeNull()
+        ->woocommerce_stock_sync_failed_at->toBeNull()
+        ->woocommerce_stock_sync_failure_code->toBeNull();
 });

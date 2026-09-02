@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 it('returns newest-first paginated order summaries', function () {
     $user = User::factory()->create();
@@ -30,7 +31,8 @@ it('returns newest-first paginated order summaries', function () {
         ->assertJsonPath('data.1.id', $older->id)
         ->assertJsonPath('meta.per_page', 20)
         ->assertJsonMissingPath('data.0.items')
-        ->assertJsonMissingPath('data.0.payment');
+        ->assertJsonMissingPath('data.0.payment')
+        ->assertJsonMissingPath('data.0.receipt');
 });
 
 it('returns 401 when listing orders without an active POS context', function () {
@@ -40,6 +42,7 @@ it('returns 401 when listing orders without an active POS context', function () 
 });
 
 it('returns immutable receipt-ready order detail to every active staff role', function (UserRole $role) {
+    config(['pos.receipt.shop.name' => 'Example Shop']);
     $cashier = User::factory()->create(['name' => 'Original cashier']);
     $device = Device::factory()->create(['name' => 'Original till']);
     $order = Order::factory()
@@ -86,6 +89,7 @@ it('returns immutable receipt-ready order detail to every active staff role', fu
         ->assertJsonPath('data.items.0.quantity', '2.000')
         ->assertJsonPath('data.totals.including_tax_cents', 218)
         ->assertJsonPath('data.payment.tendered_amount_cents', 500)
+        ->assertJsonPath('data.receipt.shop.name', 'Example Shop')
         ->assertJsonMissingPath('data.idempotency_key')
         ->assertJsonMissingPath('data.payload_fingerprint');
 })->with(UserRole::cases());
@@ -102,4 +106,55 @@ it('returns safe API errors for unauthenticated and unknown order requests', fun
         ->getJson(route('api.v1.orders.show', 'POS-999999'))
         ->assertNotFound()
         ->assertJsonPath('error.code', 'not_found');
+});
+
+it('returns an immutable sale receipt for reprinting without replaying the sale', function () {
+    config(['pos.receipt.shop' => [
+        'name' => 'Example Shop',
+        'address_line_1' => 'Main Street 1',
+        'address_line_2' => '',
+        'postal_code' => '1000 AA',
+        'city' => 'Amsterdam',
+        'country_code' => 'NL',
+        'vat_number' => 'NL000000000B01',
+        'chamber_of_commerce_number' => '12345678',
+    ]]);
+    $user = User::factory()->create();
+    $device = Device::factory()->create();
+    $order = Order::factory()
+        ->has(OrderItem::factory()->state(['description' => 'Coffee beans']), 'items')
+        ->has(Payment::factory(), 'payment')
+        ->create(['order_number' => 'POS-000043']);
+    $token = posToken($user, $device)->plainTextToken;
+    $countsBefore = [
+        'orders' => DB::table('orders')->count(),
+        'order_items' => DB::table('order_items')->count(),
+        'payments' => DB::table('payments')->count(),
+        'inventory_transactions' => DB::table('inventory_transactions')->count(),
+    ];
+
+    $this->withToken($token)
+        ->getJson(route('api.v1.orders.receipt', $order->order_number))
+        ->assertOk()
+        ->assertJsonPath('data.order_number', 'POS-000043')
+        ->assertJsonPath('data.items.0.description', 'Coffee beans')
+        ->assertJsonPath('data.payment.method', 'cash')
+        ->assertJsonPath('data.receipt.shop.name', 'Example Shop')
+        ->assertJsonPath('data.receipt.shop.address_line_1', 'Main Street 1')
+        ->assertJsonPath('data.receipt.shop.country_code', 'NL')
+        ->assertJsonPath('data.receipt.shop.vat_number', 'NL000000000B01')
+        ->assertJsonPath('data.receipt.shop.chamber_of_commerce_number', '12345678')
+        ->assertJsonPath('meta.receipt.type', 'sale')
+        ->assertJsonPath('meta.receipt.is_reprint', true);
+
+    $this->withToken($token)
+        ->getJson(route('api.v1.orders.receipt', $order->order_number))
+        ->assertOk();
+
+    expect([
+        'orders' => DB::table('orders')->count(),
+        'order_items' => DB::table('order_items')->count(),
+        'payments' => DB::table('payments')->count(),
+        'inventory_transactions' => DB::table('inventory_transactions')->count(),
+    ])->toBe($countsBefore);
 });

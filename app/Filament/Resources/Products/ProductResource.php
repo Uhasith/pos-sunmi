@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Products;
 use App\Actions\Inventory\PostInventory;
 use App\Enums\InventoryTransactionType;
 use App\Filament\Resources\Products\Pages\ManageProducts;
+use App\Jobs\SyncProductStockToWooCommerce;
 use App\Models\Product;
 use App\Models\TaxRate;
 use App\Models\User;
@@ -165,6 +166,16 @@ class ProductResource extends Resource
                     ->label('Stock')
                     ->numeric(decimalPlaces: 3)
                     ->sortable(),
+                TextColumn::make('woocommerce_stock_sync_status')
+                    ->label('Woo stock sync')
+                    ->state(fn (Product $record): string => self::wooCommerceStockSyncStatus($record))
+                    ->badge()
+                    ->color(fn (Product $record): string => match (true) {
+                        $record->woocommerce_product_id === null => 'gray',
+                        $record->woocommerce_stock_sync_failed_at !== null => 'danger',
+                        $record->woocommerce_stock_synced_at !== null => 'success',
+                        default => 'warning',
+                    }),
                 TextColumn::make('minimum_stock')
                     ->numeric(decimalPlaces: 3)
                     ->sortable()
@@ -239,6 +250,22 @@ class ProductResource extends Resource
                             ->body("New stock: {$transaction->stock_after}")
                             ->send();
                     }),
+                Action::make('retryWooCommerceStockSync')
+                    ->label('Retry Woo stock sync')
+                    ->icon(Heroicon::OutlinedArrowPath)
+                    ->authorize('retryWooCommerceStockSync')
+                    ->visible(fn (Product $record): bool => $record->woocommerce_product_id !== null
+                        && $record->woocommerce_stock_sync_failed_at !== null)
+                    ->disabled(fn (Product $record): bool => ! str_ends_with($record->stock_on_hand, '.000'))
+                    ->requiresConfirmation()
+                    ->action(function (Product $record): void {
+                        SyncProductStockToWooCommerce::dispatch($record->id);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Woo stock sync queued')
+                            ->send();
+                    }),
                 EditAction::make(),
             ])
             ->defaultSort('title');
@@ -260,5 +287,18 @@ class ProductResource extends Resource
         return $query
             ->where('active', true)
             ->whereIn('rate_basis_points', [900, 2100]);
+    }
+
+    private static function wooCommerceStockSyncStatus(Product $product): string
+    {
+        if ($product->woocommerce_product_id === null) {
+            return 'Local only';
+        }
+
+        if ($product->woocommerce_stock_sync_failed_at !== null) {
+            return 'Failed: '.Str::headline($product->woocommerce_stock_sync_failure_code ?? 'unexpected failure');
+        }
+
+        return $product->woocommerce_stock_synced_at === null ? 'Awaiting sync' : 'Synced';
     }
 }

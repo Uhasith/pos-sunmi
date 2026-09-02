@@ -31,4 +31,9 @@ class ProductPolicy
     {
         return $user->canManageCatalog();
     }
+
+    public function retryWooCommerceStockSync(User $user, Product $product): bool
+    {
+        return $user->canManageCatalog();
+    }
 }

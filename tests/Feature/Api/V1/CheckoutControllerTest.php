@@ -24,6 +24,7 @@ beforeEach(function () {
 
 it('atomically completes a receipt-ready catalog and manual cash checkout', function () {
     $this->travelTo('2026-01-15 12:00:00');
+    config(['pos.receipt.shop.name' => 'Example Shop']);
     $product = Product::factory()->create([
         'title' => 'Coffee beans',
         'article_number' => 'COFFEE-1',
@@ -71,7 +72,8 @@ it('atomically completes a receipt-ready catalog and manual cash checkout', func
         ->assertJsonPath('data.totals.including_tax_cents', 460)
         ->assertJsonPath('data.payment.amount_cents', 460)
         ->assertJsonPath('data.payment.tendered_amount_cents', 500)
-        ->assertJsonPath('data.payment.change_due_cents', 40);
+        ->assertJsonPath('data.payment.change_due_cents', 40)
+        ->assertJsonPath('data.receipt.shop.name', 'Example Shop');
 
     expect($product->refresh()->stock_on_hand)->toBe('8.000');
     $this->assertDatabaseCount('orders', 1);

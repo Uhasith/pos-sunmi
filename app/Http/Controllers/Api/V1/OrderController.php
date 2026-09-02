@@ -28,4 +28,19 @@ class OrderController extends Controller
 
         return new CheckoutResource($order->load('items', 'payment'));
     }
+
+    public function receipt(Order $order): CheckoutResource
+    {
+        Gate::authorize('view', $order);
+
+        return (new CheckoutResource($order->load('items', 'payment')))
+            ->additional([
+                'meta' => [
+                    'receipt' => [
+                        'type' => 'sale',
+                        'is_reprint' => true,
+                    ],
+                ],
+            ]);
+    }
 }

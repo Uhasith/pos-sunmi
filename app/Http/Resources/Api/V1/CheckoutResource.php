@@ -67,6 +67,9 @@ class CheckoutResource extends JsonResource
                 'currency' => $this->payment->currency,
                 'paid_at_utc' => $this->payment->paid_at->copy()->utc()->toISOString(),
             ]),
+            'receipt' => $this->when($this->relationLoaded('items'), fn (): array => [
+                'shop' => config('pos.receipt.shop'),
+            ]),
         ];
     }
 }

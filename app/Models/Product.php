@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property int $tax_rate_id
  * @property int|null $woocommerce_product_id
  * @property int|null $woocommerce_variation_id
+ * @property Carbon|null $woocommerce_stock_synced_at
+ * @property Carbon|null $woocommerce_stock_sync_failed_at
+ * @property string|null $woocommerce_stock_sync_failure_code
  * @property bool $active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -77,6 +80,17 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (Product $product): void {
+            if ($product->isDirty(['woocommerce_product_id', 'woocommerce_variation_id'])) {
+                $product->woocommerce_stock_synced_at = null;
+                $product->woocommerce_stock_sync_failed_at = null;
+                $product->woocommerce_stock_sync_failure_code = null;
+            }
+        });
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
@@ -87,6 +101,8 @@ class Product extends Model
             'minimum_stock' => 'decimal:3',
             'woocommerce_product_id' => 'integer',
             'woocommerce_variation_id' => 'integer',
+            'woocommerce_stock_synced_at' => 'datetime',
+            'woocommerce_stock_sync_failed_at' => 'datetime',
             'active' => 'boolean',
         ];
     }
