@@ -7,6 +7,11 @@ use App\Models\User;
 
 class OrderPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->active;
+    }
+
     public function view(User $user, Order $order): bool
     {
         return $user->active;

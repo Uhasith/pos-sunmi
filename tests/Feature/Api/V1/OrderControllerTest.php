@@ -7,6 +7,38 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\User;
 
+it('returns newest-first paginated order summaries', function () {
+    $user = User::factory()->create();
+    $device = Device::factory()->create();
+    $older = Order::factory()->create([
+        'order_number' => 'POS-000001',
+        'ordered_at' => '2026-01-01 10:00:00',
+        'total_including_tax_cents' => 109,
+    ]);
+    $newer = Order::factory()->create([
+        'order_number' => 'POS-000002',
+        'ordered_at' => '2026-01-02 10:00:00',
+        'total_including_tax_cents' => 242,
+    ]);
+
+    $this->withToken(posToken($user, $device)->plainTextToken)
+        ->getJson(route('api.v1.orders.index'))
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $newer->id)
+        ->assertJsonPath('data.0.order_number', 'POS-000002')
+        ->assertJsonPath('data.0.totals.including_tax_cents', 242)
+        ->assertJsonPath('data.1.id', $older->id)
+        ->assertJsonPath('meta.per_page', 20)
+        ->assertJsonMissingPath('data.0.items')
+        ->assertJsonMissingPath('data.0.payment');
+});
+
+it('returns 401 when listing orders without an active POS context', function () {
+    $this->getJson(route('api.v1.orders.index'))
+        ->assertUnauthorized()
+        ->assertJsonPath('error.code', 'unauthenticated');
+});
+
 it('returns immutable receipt-ready order detail to every active staff role', function (UserRole $role) {
     $cashier = User::factory()->create(['name' => 'Original cashier']);
     $device = Device::factory()->create(['name' => 'Original till']);
