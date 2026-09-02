@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthTokenController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\InventoryTransactionController;
+use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Middleware\EnsureActivePosContext;
 use Illuminate\Support\Facades\Route;
@@ -17,6 +18,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('auth/logout', [AuthTokenController::class, 'destroy'])->name('auth.logout');
 
         Route::post('checkouts', [CheckoutController::class, 'store'])->name('checkouts.store');
+        Route::get('orders/{order:order_number}', [OrderController::class, 'show'])->name('orders.show');
 
         Route::get('products/by-barcode/{barcode}', [ProductController::class, 'byBarcode'])
             ->name('products.by-barcode');
