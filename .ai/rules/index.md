@@ -13,6 +13,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Actions/Inventory/** | .ai/rules/inventory.md |
 | app/Jobs/** | .ai/rules/jobs.md |
 | database/migrations/** | .ai/rules/migrations.md |
+| app/Filament/Resources/Orders/** | .ai/rules/orders.md |
 | app/Providers/Filament/** | .ai/rules/providers-filament.md |
 | tests/** | .ai/rules/tests.md |
 | app/Actions/WooCommerce/** | .ai/rules/woo-commerce.md |

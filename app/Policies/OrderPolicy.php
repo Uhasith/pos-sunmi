@@ -16,4 +16,19 @@ class OrderPolicy
     {
         return $user->active;
     }
+
+    public function create(User $user): bool
+    {
+        return false;
+    }
+
+    public function update(User $user, Order $order): bool
+    {
+        return false;
+    }
+
+    public function delete(User $user, Order $order): bool
+    {
+        return false;
+    }
 }
