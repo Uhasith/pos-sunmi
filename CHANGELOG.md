@@ -6,6 +6,7 @@ Significant project changes are recorded here for future development work.
 
 ### Added
 
+- Signed, delivery-deduplicated WooCommerce order webhook intake that retains safe identifiers and a payload hash without storing customer payload bodies.
 - Authenticated newest-first POS order listing and receipt-ready detail retrieval by immutable order number.
 - Atomic, idempotent `POST /api/v1/checkouts` cash sales with catalog/manual lines, server-side VAT totals, immutable receipt snapshots, cash tender/change, and paid order/payment records.
 - Whole-unit POS sale ledger postings linked to order items, with deterministic product locking and after-commit WooCommerce stock projection for mapped products.

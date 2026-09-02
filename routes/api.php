@@ -5,8 +5,12 @@ use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\InventoryTransactionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\WooCommerceWebhookController;
 use App\Http\Middleware\EnsureActivePosContext;
 use Illuminate\Support\Facades\Route;
+
+Route::post('webhooks/woocommerce', WooCommerceWebhookController::class)
+    ->name('webhooks.woocommerce');
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::post('auth/login', [AuthTokenController::class, 'store'])

@@ -1,7 +1,9 @@
 <?php
 
 use App\Exceptions\CheckoutConflict;
+use App\Exceptions\InvalidWooCommerceWebhook;
 use App\Exceptions\InventoryIdempotencyConflict;
+use App\Exceptions\WooCommerceWebhookConflict;
 use App\Http\Middleware\AssignRequestId;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -54,6 +56,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 $code = 'forbidden';
                 $message = 'This action is not authorized.';
                 $status = Response::HTTP_FORBIDDEN;
+            } elseif ($exception instanceof InvalidWooCommerceWebhook) {
+                $code = 'invalid_woocommerce_webhook';
+                $message = 'The WooCommerce webhook could not be authenticated.';
+                $status = Response::HTTP_UNAUTHORIZED;
+            } elseif ($exception instanceof WooCommerceWebhookConflict) {
+                $code = 'woocommerce_webhook_conflict';
+                $message = 'The WooCommerce delivery ID was reused with different data.';
+                $status = Response::HTTP_CONFLICT;
             } elseif ($exception instanceof CheckoutConflict) {
                 $code = $exception->errorCode;
                 $message = $exception->getMessage();

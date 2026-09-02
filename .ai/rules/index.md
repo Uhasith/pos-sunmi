@@ -15,3 +15,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | database/migrations/** | .ai/rules/migrations.md |
 | app/Providers/Filament/** | .ai/rules/providers-filament.md |
 | tests/** | .ai/rules/tests.md |
+| app/Actions/WooCommerce/** | .ai/rules/woo-commerce.md |
