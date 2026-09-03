@@ -11,6 +11,10 @@ it('issues a POS token for an active user and pre-provisioned device', function 
     $device = Device::factory()->create([
         'uuid' => '4ac52a31-e3fa-4f59-b805-9166b93c6834',
         'name' => 'Front register',
+        'printer_model' => 'Generic ESC/POS',
+        'printer_ip_address' => '192.168.1.50',
+        'printer_port' => 9100,
+        'printer_paper_width' => 80,
     ]);
 
     $response = $this->postJson(route('api.v1.auth.login'), [
@@ -24,7 +28,12 @@ it('issues a POS token for an active user and pre-provisioned device', function 
         ->assertJsonPath('data.user.id', $user->id)
         ->assertJsonPath('data.user.role', 'cashier')
         ->assertJsonPath('data.device.uuid', $device->uuid)
-        ->assertJsonPath('data.device.name', 'Front register');
+        ->assertJsonPath('data.device.name', 'Front register')
+        ->assertJsonPath('data.device.printer.model', 'Generic ESC/POS')
+        ->assertJsonPath('data.device.printer.ip_address', '192.168.1.50')
+        ->assertJsonPath('data.device.printer.port', 9100)
+        ->assertJsonPath('data.device.printer.paper_width', 80)
+        ->assertJsonPath('data.device.printer.configured', true);
     expect($response->json('data.token'))->toBeString()->not->toBeEmpty();
     expect($device->refresh()->last_seen_at)->not->toBeNull();
     $this->assertDatabaseHas('personal_access_tokens', [
@@ -37,7 +46,26 @@ it('issues a POS token for an active user and pre-provisioned device', function 
         ->getJson(route('api.v1.me'))
         ->assertOk()
         ->assertJsonPath('data.user.id', $user->id)
-        ->assertJsonPath('data.device.uuid', $device->uuid);
+        ->assertJsonPath('data.device.uuid', $device->uuid)
+        ->assertJsonPath('data.device.printer.configured', true);
+});
+
+it('reports an incomplete printer configuration without hiding its saved values', function () {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'printer_model' => 'Generic ESC/POS',
+        'printer_port' => 9100,
+    ]);
+    $token = posToken($user, $device);
+
+    $this->withToken($token->plainTextToken)
+        ->getJson(route('api.v1.me'))
+        ->assertOk()
+        ->assertJsonPath('data.device.printer.model', 'Generic ESC/POS')
+        ->assertJsonPath('data.device.printer.ip_address', null)
+        ->assertJsonPath('data.device.printer.port', 9100)
+        ->assertJsonPath('data.device.printer.paper_width', null)
+        ->assertJsonPath('data.device.printer.configured', false);
 });
 
 it('returns 422 with the shared error envelope when login fields are missing', function () {

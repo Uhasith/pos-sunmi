@@ -22,3 +22,9 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/android/.gradle
+/android/.kotlin
+/android/.idea
+/android/build
+/android/app/build
+/android/local.properties

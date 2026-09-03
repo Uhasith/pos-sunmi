@@ -95,12 +95,19 @@ class AuthTokenController extends Controller
         ];
     }
 
-    /** @return array{uuid: string, name: string} */
+    /** @return array{uuid: string, name: string, printer: array{model: ?string, ip_address: ?string, port: ?int, paper_width: ?int, configured: bool}} */
     private function deviceData(Device $device): array
     {
         return [
             'uuid' => $device->uuid,
             'name' => $device->name,
+            'printer' => [
+                'model' => $device->printer_model,
+                'ip_address' => $device->printer_ip_address,
+                'port' => $device->printer_port,
+                'paper_width' => $device->printer_paper_width,
+                'configured' => $device->hasPrinterConfiguration(),
+            ],
         ];
     }
 }

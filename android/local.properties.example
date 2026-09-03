@@ -1,0 +1,3 @@
+sdk.dir=/Users/your-name/Library/Android/sdk
+POS_API_BASE_URL=http://192.168.1.10/
+POS_API_HOST=pos-sunmi.test

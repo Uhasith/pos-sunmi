@@ -42,3 +42,47 @@ it('creates a pre-provisioned device without accepting last seen data', function
         ->active->toBeTrue()
         ->last_seen_at->toBeNull();
 });
+
+it('creates a device with network printer settings', function () {
+    actingAs(User::factory()->withRole(UserRole::Manager)->create());
+
+    Livewire::test(ManageDevices::class)
+        ->callAction(CreateAction::class, data: [
+            'uuid' => '4e6591b9-874a-4f30-9e6f-86edb848fe28',
+            'name' => 'Front counter',
+            'printer_model' => 'Epson TM-T88VI',
+            'printer_ip_address' => '192.168.1.50',
+            'printer_port' => 9100,
+            'printer_paper_width' => 80,
+            'active' => true,
+        ])
+        ->assertHasNoFormErrors();
+
+    $device = Device::query()->sole();
+
+    expect($device->printer_model)->toBe('Epson TM-T88VI')
+        ->and($device->printer_ip_address)->toBe('192.168.1.50')
+        ->and($device->printer_port)->toBe(9100)
+        ->and($device->printer_paper_width)->toBe(80)
+        ->and($device->hasPrinterConfiguration())->toBeTrue();
+});
+
+it('rejects invalid network printer settings', function (array $printerSettings, string $field) {
+    actingAs(User::factory()->withRole(UserRole::Admin)->create());
+
+    Livewire::test(ManageDevices::class)
+        ->callAction(CreateAction::class, data: [
+            'uuid' => '83730210-c427-41ba-ab8d-ab3d4c3a6afb',
+            'name' => 'Front counter',
+            ...$printerSettings,
+            'active' => true,
+        ])
+        ->assertHasFormErrors([$field]);
+
+    expect(Device::query()->doesntExist())->toBeTrue();
+})->with([
+    'invalid IP address' => [['printer_ip_address' => 'not-an-ip'], 'printer_ip_address'],
+    'port below range' => [['printer_port' => 0], 'printer_port'],
+    'port above range' => [['printer_port' => 65536], 'printer_port'],
+    'unsupported paper width' => [['printer_paper_width' => 60], 'printer_paper_width'],
+]);

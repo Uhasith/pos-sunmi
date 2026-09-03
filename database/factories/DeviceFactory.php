@@ -20,6 +20,10 @@ class DeviceFactory extends Factory
         return [
             'uuid' => fake()->uuid(),
             'name' => fake()->unique()->words(2, true),
+            'printer_model' => null,
+            'printer_ip_address' => null,
+            'printer_port' => null,
+            'printer_paper_width' => null,
             'active' => true,
             'last_seen_at' => null,
         ];
